@@ -26,6 +26,9 @@
 // used for the other three) and run it through the same tb.v. Compare
 // your final delay to cla64_blocked.v from Task 4.
 
+// cla64_hier.v
+// Hierarchical O(log n) 64-bit CLA using 16 4-bit blocks and a 2nd-level Lookahead Carry Unit
+
 module cla64_hier(
   input  [63:0] a,
   input  [63:0] b,
@@ -34,6 +37,46 @@ module cla64_hier(
   output        cout
 );
 
-  // TODO: your hierarchical design goes here.
+  wire [15:0] p_blk;
+  wire [15:0] g_blk;
+  wire [16:0] c_blk;   // c_blk[0] is cin, c_blk[1..16] are block carry-ins
+
+  assign c_blk[0] = cin;
+
+  // -------------------------------------------------------------------------
+  // Level 2: Lookahead Carry Unit for the 16 Blocks
+  // -------------------------------------------------------------------------
+  genvar k, j;
+  generate
+    for (k = 1; k <= 16; k = k + 1) begin : gen_block_carries
+      wire [k:0] term;
+      assign term[0] = g_blk[k-1];
+      for (j = 1; j < k; j = j + 1) begin : gen_terms
+        assign term[j] = (&p_blk[k-1 : k-j]) & g_blk[k-1-j];
+      end
+      assign term[k] = (&p_blk[k-1 : 0]) & cin;
+      assign #(2) c_blk[k] = |term;
+    end
+  endgenerate
+
+  assign cout = c_blk[16];
+
+  // -------------------------------------------------------------------------
+  // Level 1: 16 Four-Bit CLA Blocks operating in parallel
+  // -------------------------------------------------------------------------
+  genvar i;
+  generate
+    for (i = 0; i < 16; i = i + 1) begin : gen_cla4_blocks
+      cla4 block_inst (
+        .a     (a[4*i + 3 : 4*i]),
+        .b     (b[4*i + 3 : 4*i]),
+        .cin   (c_blk[i]),
+        .sum   (sum[4*i + 3 : 4*i]),
+        .cout  (),
+        .p_blk (p_blk[i]),
+        .g_blk (g_blk[i])
+      );
+    end
+  endgenerate
 
 endmodule
