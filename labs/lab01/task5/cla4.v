@@ -21,19 +21,37 @@
 // TODO -- Step 3: sum bits
 //   sum[i] = p[i] ^ c[i]     (c0 = cin)
 
+// cla4.v - 4-bit CLA block with Block Propagate (P_blk) and Block Generate (G_blk)
 module cla4(
   input  [3:0] a,
   input  [3:0] b,
   input        cin,
   output [3:0] sum,
-  output       cout
+  output       cout,
+  output       p_blk,
+  output       g_blk
 );
 
-  wire p0, p1, p2, p3;
-  wire g0, g1, g2, g3;
-  wire c1, c2, c3;
+  wire [3:0] p, g;
+  wire c1, c2, c3, c4;
 
-  // TODO: your gate-level P/G, carry, and sum logic goes here.
-  // (cout should be connected to c4.) Remember the delay on every gate.
+  assign #(2) p = a ^ b;
+  assign #(2) g = a & b;
+
+  // Block propagate: all 4 bits propagate carry
+  assign #(2) p_blk = &p;
+
+  // Block generate: block generates carry internally
+  assign #(2) g_blk = g[3] | (p[3] & g[2]) | (p[3] & p[2] & g[1]) | (p[3] & p[2] & p[1] & g[0]);
+
+  // Internal carries
+  assign #(2) c1   = g[0] | (p[0] & cin);
+  assign #(2) c2   = g[1] | (p[1] & g[0]) | (p[1] & p[0] & cin);
+  assign #(2) c3   = g[2] | (p[2] & g[1]) | (p[2] & p[1] & g[0]) | (p[2] & p[1] & p[0] & cin);
+  assign #(2) c4   = g_blk | (p_blk & cin);
+  assign cout = c4;
+
+  // Sum bits
+  assign #(2) sum = p ^ {c3, c2, c1, cin};
 
 endmodule
